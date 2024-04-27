@@ -18,9 +18,12 @@ const int HX711_sck = 3;   //mcu > HX711 sck pin
 
 //HX711 constructor:
 HX711_ADC LoadCell(HX711_dout, HX711_sck);
-
+float currentWeight = 0.0;
 const int calVal_eepromAdress = 0;
 unsigned long t = 0;
+
+uint32_t report_period = 3000;
+uint32_t last_millis = 0;
 
 void setup() {
   Serial.begin(9600);
@@ -34,10 +37,15 @@ void setup() {
   NRF.stopListening();
 
   LoadCell_Setup();
+  last_millis = millis();
 }
 
 void loop() {
   LoadCell_Loop();
-  NRF_Send();
-  delay(50);
+  if (millis() - last_millis > report_period) {
+    NRF_Send();
+    Serial.print("DataSent:");
+    Serial.println(currentWeight);
+    last_millis = millis();
+  }
 }

@@ -2,8 +2,15 @@
 #include <nRF24L01.h>
 #include <RF24.h>
 #include "DataStructure.h"
+#include <SoftwareSerial.h>
 
-RF24 NRF(A0, A1); // CE, CSN
+#define rxPin 2
+#define txPin 3
+
+// Set up a new SoftwareSerial object
+SoftwareSerial BTSerial = SoftwareSerial(rxPin, txPin);
+
+RF24 NRF(A0, A1);  // CE, CSN
 
 const byte address[6] = "DX001";
 
@@ -18,15 +25,19 @@ void setup() {
   NRF.setDataRate(RF24_250KBPS);
   NRF.openReadingPipe(0, address);
   NRF.startListening();
+
+  // Define pin modes for TX and RX
+  pinMode(rxPin, INPUT);
+  pinMode(txPin, OUTPUT);
+
+  // Set the baud rate for the SoftwareSerial object
+  BTSerial.begin(9600);
 }
 
 void loop() {
   if (NRF.available()) {
     NRF.read(&payload, sizeof(Payload_Data));  // Read the whole data and store it into the 'data' structure
-    Serial.print("ID: 0x");
-    Serial.println(payload.ID,HEX);
-
-    Serial.print("Weight: ");
-    Serial.println(payload.DXweight);
+    Serial.println("A," + String(payload.ID) + "," + String(payload.DXweight) + ",B");
+    BTSerial.println("A," + String(payload.ID) + "," + String(payload.DXweight) + ",B");
   }
 }
