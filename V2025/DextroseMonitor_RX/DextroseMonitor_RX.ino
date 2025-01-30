@@ -8,7 +8,7 @@ const byte address[6] = "DX001";
 
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
 
   Serial.println("System Starting...");
   if (!NRF.begin()) {
@@ -28,6 +28,9 @@ void loop() {
     Serial.println("Data Received!");
     NRF24L01_DecodeData();
   }
+
+  Serial.println("A,270,830,B");
+  delay(1000);
 }
 
 void NRF24L01_DecodeData() {
