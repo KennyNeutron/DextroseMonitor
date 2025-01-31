@@ -6,35 +6,55 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 
 class SerialWorker(QtCore.QThread):
     data_received = QtCore.pyqtSignal(int, int)  # Signal to send patient weights
+    error_signal = QtCore.pyqtSignal(str)
 
-    def __init__(self, port="COM3", baudrate=9600):
+    def __init__(self, port="COM8", baudrate=9600):
         super().__init__()
-        self.serial_port = serial.Serial(port, baudrate, timeout=1)
+        self.mutex = QtCore.QMutex()  # Mutex for thread safety
+        try:
+            self.serial_port = serial.Serial(port, baudrate, timeout=1)
+        except serial.SerialException as e:
+            self.error_signal.emit(f"Failed to open serial port: {str(e)}")
+            self.running = False
+            return
         self.running = True
 
     def run(self):
         while self.running:
-            if self.serial_port.in_waiting > 0:
-                try:
+            try:
+                self.mutex.lock()
+                if self.serial_port.in_waiting > 0:
                     raw_data = self.serial_port.readline().decode("utf-8").strip()
+                    print(f"Received: {raw_data}")
                     if raw_data.startswith("A") and raw_data.endswith("B"):
                         values = raw_data[1:-1].split(
                             ","
                         )  # Remove A and B, split values
                         if len(values) == 2:
-                            patient1_weight = int(values[0])
-                            patient2_weight = int(values[1])
-                            self.data_received.emit(patient1_weight, patient2_weight)
-                except Exception as e:
-                    print(f"Error reading serial: {e}")
+                            try:
+                                patient1_weight = int(values[0])
+                                patient2_weight = int(values[1])
+                                self.data_received.emit(
+                                    patient1_weight, patient2_weight
+                                )
+                            except ValueError as e:
+                                print(f"Error converting values: {e}")
+                self.mutex.unlock()
+            except Exception as e:
+                self.error_signal.emit(f"Serial read error: {str(e)}")
+                break
+
+        if self.serial_port.is_open:
+            self.serial_port.close()
 
     def stop(self):
         self.running = False
-        self.serial_port.close()
+        if hasattr(self, "serial_port") and self.serial_port.is_open:
+            self.serial_port.close()
         self.quit()
 
 
-class Ui_MainWindow(QtWidgets.QMainWindow):
+class MainApplication(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("DEXTROSE MONITOR")
@@ -48,14 +68,14 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
 
         # Title
         self.lbl_Title = QtWidgets.QLabel("DEXTROSE MONITOR", self.centralwidget)
-        self.lbl_Title.setGeometry(QtCore.QRect(250, 20, 300, 50))
-        self.lbl_Title.setFont(QtGui.QFont("Arial", 20, QtGui.QFont.Bold))
+        self.lbl_Title.setGeometry(QtCore.QRect(250, 20, 400, 50))
+        self.lbl_Title.setFont(QtGui.QFont("Arial", 18, QtGui.QFont.Bold))
         self.lbl_Title.setStyleSheet("color: white;")
         self.lbl_Title.setAlignment(QtCore.Qt.AlignCenter)
 
         # Patient 1 UI Elements
         self.Liquid1 = QtWidgets.QProgressBar(self.centralwidget)
-        self.Liquid1.setGeometry(QtCore.QRect(20, 170, 601, 71))
+        self.Liquid1.setGeometry(QtCore.QRect(25, 170, 601, 71))
         self.Liquid1.setMaximum(100)
         self.Liquid1.setTextVisible(False)
 
@@ -76,64 +96,25 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.lbl_Patient1_Percent.setFont(QtGui.QFont("Arial", 20, QtGui.QFont.Bold))
         self.lbl_Patient1_Percent.setStyleSheet("color: white;")
 
-        # Patient 2 UI Elements
-        self.Liquid2 = QtWidgets.QProgressBar(self.centralwidget)
-        self.Liquid2.setGeometry(QtCore.QRect(20, 380, 601, 71))
-        self.Liquid2.setMaximum(100)
-        self.Liquid2.setTextVisible(False)
+        # Serial Thread
+        self.serial_thread = SerialWorker(port="COM8", baudrate=9600)
+        self.serial_thread.data_received.connect(self.update_patient_data)
+        self.serial_thread.error_signal.connect(self.handle_serial_error)
+        self.serial_thread.start()
 
-        self.lbl_Patient2 = QtWidgets.QLabel("Patient 2", self.centralwidget)
-        self.lbl_Patient2.setGeometry(QtCore.QRect(20, 280, 201, 50))
-        self.lbl_Patient2.setFont(QtGui.QFont("Arial", 20, QtGui.QFont.Bold))
-        self.lbl_Patient2.setStyleSheet("color: white;")
+    def handle_serial_error(self, error_message):
+        QtWidgets.QMessageBox.critical(self, "Serial Error", error_message)
 
-        self.lbl_Patient2_DextroseWeight = QtWidgets.QLabel("", self.centralwidget)
-        self.lbl_Patient2_DextroseWeight.setGeometry(QtCore.QRect(20, 320, 371, 50))
-        self.lbl_Patient2_DextroseWeight.setFont(
-            QtGui.QFont("Arial", 12, QtGui.QFont.Bold)
-        )
-        self.lbl_Patient2_DextroseWeight.setStyleSheet("color: white;")
-
-        self.lbl_Patient2_Percent = QtWidgets.QLabel("", self.centralwidget)
-        self.lbl_Patient2_Percent.setGeometry(QtCore.QRect(630, 390, 101, 50))
-        self.lbl_Patient2_Percent.setFont(QtGui.QFont("Arial", 20, QtGui.QFont.Bold))
-        self.lbl_Patient2_Percent.setStyleSheet("color: white;")
-
+    @QtCore.pyqtSlot(int, int)
     def update_patient_data(self, weight1, weight2):
         percent1 = min(max(int((weight1 / 1000) * 100), 0), 100)
-        percent2 = min(max(int((weight2 / 1000) * 100), 0), 100)
-
-        color1 = "red" if percent1 < 10 else "orange" if percent1 < 20 else "green"
-        color2 = "red" if percent2 < 10 else "orange" if percent2 < 20 else "green"
-
         self.Liquid1.setValue(percent1)
-        self.Liquid1.setStyleSheet(
-            f"QProgressBar::chunk {{ background-color: {color1}; }}"
-        )
         self.lbl_Patient1_DextroseWeight.setText(f"Dextrose Weight: {weight1}mg")
         self.lbl_Patient1_Percent.setText(f"{percent1}%")
 
-        self.Liquid2.setValue(percent2)
-        self.Liquid2.setStyleSheet(
-            f"QProgressBar::chunk {{ background-color: {color2}; }}"
-        )
-        self.lbl_Patient2_DextroseWeight.setText(f"Dextrose Weight: {weight2}mg")
-        self.lbl_Patient2_Percent.setText(f"{percent2}%")
-
-
-class MainApplication(QtWidgets.QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.ui = Ui_MainWindow()
-        self.ui.setupUi(self)
-
-        # Serial Thread
-        self.serial_thread = SerialWorker(port="COM3", baudrate=9600)
-        self.serial_thread.data_received.connect(self.ui.update_patient_data)
-        self.serial_thread.start()
-
     def closeEvent(self, event):
         self.serial_thread.stop()
+        self.serial_thread.wait()
         event.accept()
 
 
