@@ -1,18 +1,14 @@
 #include <SPI.h>
 #include <nRF24L01.h>
 #include <RF24.h>
+#include <HX711_ADC.h>
+#include <EEPROM.h>
 #include "DataStructure.h"
+
 
 RF24 NRF(A0, A1);  // CE, CSN
 
 const byte address[6] = "DX001";
-
-#define AVR
-
-#include <HX711_ADC.h>
-#if defined(ESP8266) || defined(ESP32) || defined(AVR)
-#include <EEPROM.h>
-#endif
 
 //pins:
 const int HX711_dout = 2;  //mcu > HX711 dout pin
@@ -46,8 +42,9 @@ void loop() {
   LoadCell_Loop();
   if (millis() - last_millis > report_period) {
     NRF_Send();
+    Serial.println("DXWeight:" + String(currentWeight));
     Serial.print("DataSent:");
-    Serial.println(currentWeight);
+    Serial.println(payload.DXweight);
     last_millis = millis();
   }
 }

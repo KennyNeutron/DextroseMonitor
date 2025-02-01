@@ -6,6 +6,8 @@
 RF24 NRF(8, 9);  // CE, CSN
 const byte address[6] = "DX001";
 
+uint16_t dx_patient1 = 600;
+uint16_t dx_patient2 = 1000;
 
 void setup() {
   Serial.begin(9600);
@@ -29,18 +31,22 @@ void loop() {
     NRF24L01_DecodeData();
   }
 
-  uint16_t dx_patient1=random(5,990);
-  uint16_t dx_patient2=random(5,990);
 
   String toSend = "A," + String(dx_patient1) + "," + String(dx_patient2) + ",B";
   Serial.println(toSend);
-  delay(1000);
+  delay(100);
 }
 
 void NRF24L01_DecodeData() {
   NRF.read(&payload, sizeof(Payload_Data));  // Read the whole data and store it into the 'data' structure
-  Serial.print("Patient ID:");
-  Serial.println(payload.ID);
-  Serial.print("DXWeight:");
-  Serial.println(payload.DXweight);
+  // Serial.print("Patient ID:");
+  // Serial.println(payload.ID);
+  // Serial.print("DXWeight:");
+  // Serial.println(payload.DXweight);
+  if(payload.ID==1){
+    dx_patient1=payload.DXweight;
+  }else if(payload.ID==2){
+    dx_patient2=payload.DXweight;
+  }
+
 }
