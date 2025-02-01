@@ -1,6 +1,8 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
-import time
 import random
+import serial
+
+ser = serial.Serial(port="COM8", baudrate=9600, timeout=0.1)
 
 
 class Ui_MainWindow(object):
@@ -106,9 +108,26 @@ class Ui_MainWindow(object):
         self.lbl_Patient2_Percent.setText(f"{percent2}%")
 
     def update_values(self):
-        patient1_weight = random.randint(50, 1000)  # Example weight in mg
-        patient2_weight = random.randint(50, 1000)
-        self.update_patient_data(patient1_weight, patient2_weight)
+        # patient1_weight = random.randint(50, 1000)  # Example weight in mg
+        # patient2_weight = random.randint(50, 1000)
+        # self.update_patient_data(patient1_weight, patient2_weight)
+
+        if ser.in_waiting > 0:
+            received_data = (
+                ser.readline().decode("utf-8").strip()
+            )  # Read a line, decode, and remove extra spaces
+            print(f"Received: {received_data}")  # Display the received data
+            if received_data.startswith("A") and received_data.endswith("B"):
+                print("Valid data received")
+                values = received_data[1:-1].split(",")
+                if len(values) == 4:
+                    print("Valid number of values received")
+                    print(f"Values: {values}")
+                    print(f"Patient 1 weight: {values[1]}")
+                    print(f"Patient 2 weight: {values[2]}")
+                    patient1_weight = int(values[1])
+                    patient2_weight = int(values[2])
+                    self.update_patient_data(patient1_weight, patient2_weight)
 
 
 if __name__ == "__main__":

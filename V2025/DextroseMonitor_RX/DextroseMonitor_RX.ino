@@ -29,7 +29,11 @@ void loop() {
     NRF24L01_DecodeData();
   }
 
-  Serial.println("A,270,830,B");
+  uint16_t dx_patient1=random(5,990);
+  uint16_t dx_patient2=random(5,990);
+
+  String toSend = "A," + String(dx_patient1) + "," + String(dx_patient2) + ",B";
+  Serial.println(toSend);
   delay(1000);
 }
 
