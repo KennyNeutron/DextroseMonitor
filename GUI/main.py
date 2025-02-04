@@ -9,7 +9,7 @@ class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update_values)
-        self.timer.start(50)
+        self.timer.start(500)
 
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(820, 600)
