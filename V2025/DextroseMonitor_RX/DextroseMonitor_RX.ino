@@ -6,8 +6,10 @@
 RF24 NRF(8, 9);  // CE, CSN
 const byte address[6] = "DX001";
 
-uint16_t dx_patient1 = 600;
-uint16_t dx_patient2 = 1000;
+uint16_t dx_patient1 = 501;
+uint16_t dx_patient2 = 502;
+
+#define buzzer 4
 
 void setup() {
   Serial.begin(9600);
@@ -22,6 +24,9 @@ void setup() {
   NRF.setDataRate(RF24_250KBPS);
   NRF.openReadingPipe(0, address);
   NRF.startListening();
+
+  pinMode(buzzer, OUTPUT);
+  digitalWrite(buzzer, 0);
 }
 
 
@@ -34,7 +39,23 @@ void loop() {
 
   String toSend = "A," + String(dx_patient1) + "," + String(dx_patient2) + ",B";
   Serial.println(toSend);
-  delay(100);
+
+  if ((dx_patient1 > 100 && dx_patient1 < 200) || (dx_patient2 > 100 && dx_patient2 < 200)) {
+    digitalWrite(buzzer, 1);
+    delay(500);
+    digitalWrite(buzzer, 0);
+    delay(500);
+  } else if (dx_patient1 < 100 || dx_patient2 < 100) {
+    for (int i = 0; i < 10; i++) {
+      digitalWrite(buzzer, 1);
+      delay(100);
+      digitalWrite(buzzer, 0);
+      delay(100);
+    }
+  } else {
+    digitalWrite(buzzer, 0);
+    delay(1000);
+  }
 }
 
 void NRF24L01_DecodeData() {
@@ -43,10 +64,9 @@ void NRF24L01_DecodeData() {
   // Serial.println(payload.ID);
   // Serial.print("DXWeight:");
   // Serial.println(payload.DXweight);
-  if(payload.ID==1){
-    dx_patient1=payload.DXweight;
-  }else if(payload.ID==2){
-    dx_patient2=payload.DXweight;
+  if (payload.ID == 1) {
+    dx_patient1 = payload.DXweight;
+  } else if (payload.ID == 2) {
+    dx_patient2 = payload.DXweight;
   }
-
 }
